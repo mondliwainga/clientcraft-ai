@@ -14,17 +14,17 @@ export function AccountIndicator({ darkMode }: AccountIndicatorProps) {
   return (
     <div className="flex items-center justify-between gap-3">
       <span
-        className={`text-xs truncate max-w-[200px] ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+        className={`text-xs truncate max-w-[200px] ${darkMode ? "text-secondary" : "text-secondary"}`}
       >
         {user.email}
       </span>
       <button
         type="button"
         onClick={logout}
-        className={`rounded-md px-3 py-1.5 text-xs font-medium ring-1 transition ${
+        className={`rounded-lg px-3 py-1.5 text-xs font-medium border transition ${
           darkMode
-            ? "bg-gray-700 text-gray-300 ring-gray-600 hover:bg-gray-600"
-            : "bg-white text-gray-700 ring-gray-200 hover:bg-gray-100"
+            ? "border-border bg-card text-foreground hover:bg-border"
+            : "border-border bg-card text-navy hover:bg-background"
         }`}
       >
         Sign out

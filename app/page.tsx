@@ -1,526 +1,325 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth/useAuth";
-import { AuthGate } from "@/components/AuthGate";
-import { AccountIndicator } from "@/components/AccountIndicator";
-import { UsageCounter } from "@/components/UsageCounter";
-import { downloadAsTxt, downloadAsPdf, downloadAsDocx } from "@/lib/download";
 
-export default function Home() {
-  const { user, loading, remainingCount, refreshUsage } = useAuth();
+export default function LandingPage() {
+  const { user, loading } = useAuth();
+  const [lightMode, setLightMode] = useState(false);
 
-  const [notes, setNotes] = useState("");
-  const [outputType, setOutputType] = useState("email");
-  const [tone, setTone] = useState("Professional");
-  const [generating, setGenerating] = useState(false);
-  const [result, setResult] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
-  const [isFollowUp, setIsFollowUp] = useState(false);
-  const [transcribing, setTranscribing] = useState(false);
-  const resultRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const typeLabel =
-    outputType === "email"
-      ? "Email"
-      : outputType === "proposal"
-        ? "Proposal"
-        : outputType === "quotation"
-          ? "Quotation"
-          : outputType === "invoice"
-            ? "Invoice"
-            : outputType === "contract"
-              ? "Contract"
-              : outputType === "business-plan"
-                ? "Business Plan"
-                : outputType === "social-media"
-                  ? "Social Media"
-                  : "Follow-up";
-
-  const wordCount = notes.trim() ? notes.trim().split(/\s+/).length : 0;
-  const isAtLimit = remainingCount === 0;
-
-  // Auto-resize the result textarea
-  useEffect(() => {
-    if (resultRef.current) {
-      resultRef.current.style.height = "auto";
-      resultRef.current.style.height = resultRef.current.scrollHeight + "px";
-    }
-  }, [result]);
-
-  const handleGenerate = useCallback(async () => {
-    if (!notes.trim() || !user) return;
-
-    setGenerating(true);
-    setResult("");
-    setError(null);
-    setCopied(false);
-
-    try {
-      const token = await user.getIdToken();
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ notes, type: typeLabel, tone }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || "Something went wrong. Please try again.");
-        return;
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) {
-        setError("Failed to read response stream.");
-        return;
-      }
-
-      const decoder = new TextDecoder();
-      let done = false;
-      let fullText = "";
-
-      while (!done) {
-        const { value, done: streamDone } = await reader.read();
-        done = streamDone;
-        if (value) {
-          const text = decoder.decode(value, { stream: true });
-          fullText += text;
-          setResult((prev) => prev + text);
-        }
-      }
-
-      // Detect if AI asked follow-up questions instead of generating a document
-      const looksLikeQuestions =
-        fullText.includes("I need a few details") ||
-        fullText.includes("I need some details") ||
-        fullText.includes("Could you provide") ||
-        fullText.includes("Please provide") ||
-        (fullText.split("?").length >= 3 && fullText.length < 500);
-
-      if (looksLikeQuestions) {
-        setIsFollowUp(true);
-      } else {
-        setIsFollowUp(false);
-        // Refresh usage count after successful generation
-        await refreshUsage();
-      }
-    } catch {
-      setError("Failed to connect to the server. Please try again.");
-    } finally {
-      setGenerating(false);
-    }
-  }, [notes, typeLabel, tone, user, refreshUsage]);
-
-  function handleClear() {
-    setNotes("");
-    setOutputType("email");
-    setTone("Professional");
-    setResult("");
-    setError(null);
-    setCopied(false);
-    setIsFollowUp(false);
-  }
-
-  function handleCopy() {
-    if (result) {
-      navigator.clipboard.writeText(result);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  }
-
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-
-    setTranscribing(true);
-    setError(null);
-
-    try {
-      const token = await user.getIdToken();
-      const formData = new FormData();
-      formData.append("audio", file);
-
-      const res = await fetch("/api/transcribe", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "Transcription failed");
-        return;
-      }
-
-      // Append transcribed text to existing notes
-      setNotes((prev) => (prev ? prev + "\n\n" + data.text : data.text));
-    } catch {
-      setError("Failed to transcribe audio. Please try again.");
-    } finally {
-      setTranscribing(false);
-      // Reset file input
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
-
-  // Loading state
-  if (loading) {
-    return (
-      <main
-        className={`flex-1 flex items-center justify-center px-4 py-12 ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}
-      >
-        <div className="flex items-center gap-3">
-          <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-blue-600/30 border-t-blue-600" />
-          <span className={darkMode ? "text-gray-400" : "text-gray-500"}>
-            Loading...
-          </span>
-        </div>
-      </main>
-    );
-  }
+  // Colors based on theme
+  const bg = lightMode ? "bg-[#F8FAFC]" : "bg-[#13111C]";
+  const cardBg = lightMode ? "bg-white" : "bg-[#1C1A27]";
+  const border = lightMode ? "border-[#E2E8F0]" : "border-[#2D2A3A]";
+  const heading = lightMode ? "text-[#0F172A]" : "text-[#E8E4F0]";
+  const body = lightMode ? "text-[#64748B]" : "text-[#9B95A8]";
+  const muted = lightMode ? "text-[#94A3B8]" : "text-[#6B6580]";
+  const navBg = lightMode ? "bg-white/90" : "bg-[#13111C]/90";
+  const inputBg = lightMode ? "bg-[#F8FAFC]" : "bg-[#252336]";
 
   return (
-    <main
-      className={`flex-1 flex items-center justify-center px-4 py-12 transition-colors duration-300 ${
-        darkMode ? "bg-gray-900" : "bg-gray-50"
-      }`}
-    >
-      <div
-        className={`w-full max-w-xl rounded-2xl p-8 shadow-lg transition-colors duration-300 ${
-          darkMode
-            ? "bg-gray-800 ring-1 ring-gray-700"
-            : "bg-white ring-1 ring-gray-100"
-        }`}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex-1" />
-          <h1
-            className={`text-3xl font-bold tracking-tight text-center flex-1 whitespace-nowrap ${
-              darkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            ClientCraft AI
-          </h1>
-          <div className="flex-1 flex justify-end">
+    <div className={`${bg} transition-colors duration-300`}>
+      {/* Navigation */}
+      <nav className={`sticky top-0 z-50 backdrop-blur-md border-b ${border} ${navBg}`}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <span className={`text-xl font-bold ${heading}`}>Client<span className="text-[#8B5CF6]">Craft</span></span>
+          <div className={`hidden md:flex items-center gap-8 text-sm ${body}`}>
+            <a href="#services" className="hover:text-[#8B5CF6] transition">Services</a>
+            <a href="#features" className="hover:text-[#8B5CF6] transition">Features</a>
+            <a href="#how-it-works" className="hover:text-[#8B5CF6] transition">How It Works</a>
+            <a href="#pricing" className="hover:text-[#8B5CF6] transition">Pricing</a>
+          </div>
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setDarkMode(!darkMode)}
-              className={`rounded-full p-2 transition ${
-                darkMode
-                  ? "bg-gray-700 text-yellow-400 hover:bg-gray-600"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-              aria-label="Toggle dark mode"
+              onClick={() => setLightMode(!lightMode)}
+              className={`rounded-lg p-2 transition ${lightMode ? "bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0]" : "bg-[#252336] text-[#A78BFA] hover:bg-[#2D2A3A]"}`}
+              aria-label="Toggle theme"
             >
-              {darkMode ? (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+              {lightMode ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>
               ) : (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                </svg>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" /></svg>
               )}
             </button>
+            {!loading && user ? (
+              <Link href="/dashboard" className="rounded-lg bg-[#8B5CF6] px-4 py-2 text-sm font-medium text-white hover:bg-[#7C3AED] transition">Open App</Link>
+            ) : (
+              <>
+                <Link href="/dashboard" className={`text-sm hidden sm:block transition ${body} hover:text-[#8B5CF6]`}>Sign In</Link>
+                <Link href="/dashboard" className="rounded-lg bg-[#8B5CF6] px-4 py-2 text-sm font-medium text-white hover:bg-[#7C3AED] transition">Start Creating</Link>
+              </>
+            )}
           </div>
         </div>
+      </nav>
 
-        <p
-          className={`mt-2 text-center ${darkMode ? "text-gray-400" : "text-gray-500"}`}
-        >
-          Professional emails, proposals, invoices &amp; more — in seconds
-        </p>
-
-        {/* Auth Gate — show if not signed in */}
-        {!user ? (
-          <div className="mt-8">
-            <AuthGate darkMode={darkMode} />
+      {/* Hero */}
+      <section className="pt-20 pb-24 sm:pt-28 sm:pb-32">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 className={`text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight ${heading}`}>
+            Turn Rough Ideas Into<br />Professional Documents
+          </h1>
+          <p className={`mt-5 text-lg sm:text-xl max-w-2xl mx-auto ${body}`}>
+            Just type it. Say it. ClientCraft makes it professional.
+          </p>
+          <p className={`mt-3 text-base max-w-2xl mx-auto ${muted}`}>
+            Create polished emails, proposals, quotations, invoices, contracts, business plans and social media content from simple notes or voice recordings.
+          </p>
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link href="/dashboard" className="w-full sm:w-auto rounded-xl bg-[#8B5CF6] px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#8B5CF6]/20 hover:bg-[#7C3AED] transition">
+              Start Creating for Free
+            </Link>
+            <a href="#how-it-works" className={`w-full sm:w-auto rounded-xl border px-8 py-3.5 text-sm font-semibold transition ${border} ${heading} hover:bg-[#252336]`}>
+              See How It Works
+            </a>
           </div>
-        ) : (
-          <>
-            {/* Account & Usage */}
-            <div className="mt-6 space-y-3">
-              <AccountIndicator darkMode={darkMode} />
-              <UsageCounter darkMode={darkMode} />
-            </div>
+          <p className={`mt-4 text-xs ${muted}`}>5 free documents every day · No credit card required</p>
 
-            {/* Form */}
-            <div className="mt-6 space-y-4">
-              <div>
-                <textarea
-                  rows={6}
-                  placeholder="Paste your rough notes or voice transcript here..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className={`w-full resize-none rounded-lg border px-4 py-3 text-sm shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
-                    darkMode
-                      ? "border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-500"
-                      : "border-gray-200 bg-gray-50 text-gray-900 placeholder-gray-400"
-                  }`}
-                />
-                <div
-                  className={`mt-1 flex items-center justify-between text-xs ${darkMode ? "text-gray-500" : "text-gray-400"}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm,.mp4"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={transcribing}
-                      className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ring-1 transition ${
-                        darkMode
-                          ? "bg-gray-700 text-gray-300 ring-gray-600 hover:bg-gray-600"
-                          : "bg-white text-gray-600 ring-gray-200 hover:bg-gray-50"
-                      } disabled:opacity-60`}
-                    >
-                      {transcribing ? (
-                        <>
-                          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current/30 border-t-current" />
-                          Transcribing...
-                        </>
-                      ) : (
-                        <>
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-3.5 w-3.5"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                          Upload audio
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  <span>
-                    {wordCount} {wordCount === 1 ? "word" : "words"}
-                  </span>
+          {/* Feature badges */}
+          <div className={`mt-12 flex flex-wrap items-center justify-center gap-6 text-sm ${body}`}>
+            <span className="flex items-center gap-2"><span className="text-[#A78BFA]">🎙️</span> Voice-to-Document</span>
+            <span className="flex items-center gap-2"><span className="text-[#8B5CF6]">✨</span> AI-Powered</span>
+            <span className="flex items-center gap-2"><span className="text-[#8B5CF6]">📄</span> PDF &amp; Word Export</span>
+          </div>
+
+          {/* Product Preview */}
+          <div className={`mt-16 rounded-2xl border p-6 sm:p-8 max-w-2xl mx-auto ${border} ${cardBg}`}>
+            <div className="space-y-3">
+              <div className={`rounded-xl border p-4 ${border} ${inputBg}`}>
+                <p className={`text-xs mb-1 font-medium ${muted}`}>Input:</p>
+                <p className={`text-sm italic ${body}`}>&quot;Need quote for Thabo. Three bedroom house. Deep clean. Kitchen and bathrooms. Windows. Saturday. R2500.&quot;</p>
+              </div>
+              <div className="flex items-center justify-center"><span className="text-[#8B5CF6] text-lg">↓</span></div>
+              <div className={`rounded-xl border p-4 ${border} ${inputBg}`}>
+                <p className={`text-xs mb-2 font-medium ${muted}`}>Generated Quotation:</p>
+                <div className={`text-sm space-y-1 ${heading}`}>
+                  <p className="font-bold">PROFESSIONAL CLEANING QUOTATION</p>
+                  <p className={body}>Prepared for: Thabo</p>
+                  <p className={body}>Service: Deep House Cleaning · 3-bedroom residence</p>
+                  <p className={`mt-2 font-medium ${heading}`}>Services: Kitchen · Bathrooms · Windows</p>
+                  <p className={`mt-2 font-bold ${heading}`}>Total: R2,500 · Scheduled: Saturday</p>
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <select
-                  value={outputType}
-                  onChange={(e) => setOutputType(e.target.value)}
-                  className={`rounded-lg border px-4 py-3 text-sm shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
-                    darkMode
-                      ? "border-gray-600 bg-gray-700 text-gray-100"
-                      : "border-gray-200 bg-gray-50 text-gray-900"
-                  }`}
-                >
-                  <option value="email">Email</option>
-                  <option value="proposal">Proposal</option>
-                  <option value="quotation">Quotation</option>
-                  <option value="invoice">Invoice</option>
-                  <option value="contract">Contract</option>
-                  <option value="business-plan">Business Plan</option>
-                  <option value="social-media">Social Media</option>
-                  <option value="follow-up">Follow-up</option>
-                </select>
-
-                <select
-                  value={tone}
-                  onChange={(e) => setTone(e.target.value)}
-                  className={`rounded-lg border px-4 py-3 text-sm shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
-                    darkMode
-                      ? "border-gray-600 bg-gray-700 text-gray-100"
-                      : "border-gray-200 bg-gray-50 text-gray-900"
-                  }`}
-                >
-                  <option value="Professional">Professional</option>
-                  <option value="Friendly">Friendly</option>
-                  <option value="Formal">Formal</option>
-                  <option value="Persuasive">Persuasive</option>
-                  <option value="Confident">Confident</option>
-                  <option value="Casual">Casual</option>
-                </select>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  disabled={generating || !notes.trim() || isAtLimit}
-                  onClick={handleGenerate}
-                  className="flex-1 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  {generating && (
-                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  )}
-                  {generating ? "Generating..." : "Generate"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClear}
-                  className={`rounded-lg border px-4 py-3 text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-gray-300/50 focus:ring-offset-2 ${
-                    darkMode
-                      ? "border-gray-600 bg-gray-700 text-gray-300 hover:bg-gray-600"
-                      : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  Clear
-                </button>
-              </div>
             </div>
+          </div>
+        </div>
+      </section>
 
-            {/* Error */}
-            {error && (
-              <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 animate-fade-in">
-                {error}
+      {/* Services */}
+      <section id="services" className={`py-24 ${lightMode ? "bg-white" : "bg-[#1C1A27]/50"}`}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className={`text-3xl sm:text-4xl font-bold text-center ${heading}`}>What We Offer</h2>
+          <p className={`mt-3 text-center max-w-2xl mx-auto ${body}`}>Everything you need to handle your business writing — fast, professional, and effortless.</p>
+          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { icon: "✨", title: "AI Document Generation", desc: "Turn rough notes, bullet points, or ideas into polished, ready-to-send business documents in seconds." },
+              { icon: "🎙️", title: "Voice-to-Document", desc: "Upload a voice recording or record directly — we transcribe and transform it into a professional document." },
+              { icon: "📄", title: "Multi-Format Export", desc: "Download your documents as PDF, Word (.docx), or plain text. Ready for clients immediately." },
+              { icon: "🎨", title: "Tone Customization", desc: "Match the writing style to your audience — Professional, Friendly, Formal, Persuasive, Confident, or Casual." },
+              { icon: "💬", title: "Smart Follow-Up Questions", desc: "Not sure what details to include? ClientCraft asks the right questions before generating your document." },
+              { icon: "⚡", title: "Real-Time Streaming", desc: "Watch your document generate live — no waiting for a loading screen. Edit it as soon as it appears." },
+            ].map((item) => (
+              <div key={item.title} className={`rounded-2xl border p-6 transition hover:border-[#8B5CF6]/40 ${border} ${cardBg}`}>
+                <span className="text-2xl">{item.icon}</span>
+                <h3 className={`mt-3 font-semibold ${heading}`}>{item.title}</h3>
+                <p className={`mt-2 text-sm leading-relaxed ${body}`}>{item.desc}</p>
               </div>
-            )}
+            ))}
+          </div>
+        </div>
+      </section>
 
-            {/* Result */}
-            {(result || generating) && (
-              <div
-                className={`mt-8 rounded-xl border p-6 animate-fade-in transition-colors ${
-                  darkMode
-                    ? "border-gray-700 bg-gray-900/50"
-                    : "border-gray-200 bg-gray-50"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h2
-                    className={`text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-900"}`}
-                  >
-                    {isFollowUp
-                      ? "A few more details needed:"
-                      : `Here\u0027s your polished ${typeLabel}:`}
-                  </h2>
-                  <div className="flex items-center gap-2">
-                    {!generating && result && !isFollowUp && (
-                      <button
-                        type="button"
-                        onClick={handleGenerate}
-                        className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-medium shadow-sm ring-1 transition ${
-                          darkMode
-                            ? "bg-gray-700 text-gray-300 ring-gray-600 hover:bg-gray-600"
-                            : "bg-white text-gray-700 ring-gray-200 hover:bg-gray-100"
-                        }`}
-                      >
-                        Regenerate
-                      </button>
-                    )}
-                    {!isFollowUp && (
-                      <button
-                        type="button"
-                        onClick={handleCopy}
-                        disabled={!result}
-                        className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-medium shadow-sm ring-1 transition ${
-                          darkMode
-                            ? "bg-gray-700 text-gray-300 ring-gray-600 hover:bg-gray-600"
-                            : "bg-white text-gray-700 ring-gray-200 hover:bg-gray-100"
-                        } disabled:opacity-50`}
-                      >
-                        {copied ? "Copied!" : "Copy"}
-                      </button>
-                    )}
-                  </div>
+      {/* How It Works */}
+      <section id="how-it-works" className={`py-24 ${lightMode ? "bg-white" : "bg-[#1C1A27]/50"}`}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className={`text-3xl sm:text-4xl font-bold text-center ${heading}`}>From Thought to Finished Document in Seconds</h2>
+          <div className="mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[
+              { n: "1", title: "Tell us what you need", desc: "Type rough notes or upload a voice recording." },
+              { n: "2", title: "Choose your document", desc: "Email, proposal, quotation, invoice, contract, or more." },
+              { n: "3", title: "Set your tone", desc: "Professional, Friendly, Formal, Persuasive, Confident, Casual." },
+              { n: "4", title: "Edit, download & send", desc: "Download as PDF, Word, or TXT." },
+            ].map((s) => (
+              <div key={s.n} className="text-center">
+                <div className="w-11 h-11 rounded-xl bg-[#8B5CF6]/10 text-[#8B5CF6] flex items-center justify-center mx-auto text-lg font-bold">{s.n}</div>
+                <h3 className={`mt-4 font-semibold ${heading}`}>{s.title}</h3>
+                <p className={`mt-2 text-sm ${body}`}>{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Intelligent Follow-up */}
+      <section id="features" className="py-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl mx-auto text-center">
+            <h2 className={`text-3xl sm:text-4xl font-bold ${heading}`}>Don&apos;t Know What Details You Need? We Do.</h2>
+            <p className={`mt-4 ${body}`}>Just tell ClientCraft what you need. We ask the right questions.</p>
+          </div>
+          <div className="mt-12 max-w-lg mx-auto space-y-4">
+            <div className={`rounded-xl p-4 border ${lightMode ? "bg-[#8B5CF6]/5 border-[#8B5CF6]/20" : "bg-[#8B5CF6]/10 border-[#8B5CF6]/20"}`}>
+              <p className="text-xs font-medium text-[#8B5CF6] mb-1">You:</p>
+              <p className={`text-sm ${heading}`}>&quot;I need a quotation for painting a three-bedroom house.&quot;</p>
+            </div>
+            <div className={`rounded-xl border p-4 ${border} ${cardBg}`}>
+              <p className={`text-xs font-medium mb-1 ${muted}`}>ClientCraft:</p>
+              <p className={`text-sm ${heading}`}>&quot;A few details will help:</p>
+              <ul className={`text-sm mt-1 ml-4 list-disc ${body}`}>
+                <li>What&apos;s the client&apos;s name?</li>
+                <li>What areas need to be painted?</li>
+                <li>Do you have a price in mind?&quot;</li>
+              </ul>
+            </div>
+            <div className={`rounded-xl p-4 text-center border ${lightMode ? "bg-green-50 border-green-200" : "bg-[#34D399]/10 border-[#34D399]/20"}`}>
+              <p className={`text-sm font-medium ${lightMode ? "text-green-700" : "text-[#34D399]"}`}>✓ Professional quotation generated</p>
+            </div>
+          </div>
+          <p className={`mt-8 text-center text-sm font-medium ${body}`}>No complicated prompts. No blank page. Just tell us what you need.</p>
+        </div>
+      </section>
+
+      {/* Voice-to-Document */}
+      <section className={`py-24 ${lightMode ? "bg-white" : "bg-[#1C1A27]/50"}`}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl mx-auto text-center">
+            <h2 className={`text-3xl sm:text-4xl font-bold ${heading}`}>Too Busy to Type? Just Talk.</h2>
+            <p className={`mt-4 ${body}`}>Upload a voice note or record directly. We transcribe and generate your document.</p>
+          </div>
+          <div className="mt-12 flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
+            {[
+              { icon: "🎙️", label: "Voice Note" },
+              { icon: "📝", label: "Transcription" },
+              { icon: "✨", label: "ClientCraft AI" },
+              { icon: "📄", label: "Document" },
+            ].map((item, i) => (
+              <div key={item.label} className="flex items-center gap-3 sm:gap-4">
+                <div className={`flex flex-col items-center gap-2 rounded-xl border px-5 py-4 ${border} ${cardBg}`}>
+                  <span className="text-2xl">{item.icon}</span>
+                  <span className={`text-xs font-medium ${body}`}>{item.label}</span>
                 </div>
-                <textarea
-                  ref={resultRef}
-                  value={result}
-                  onChange={(e) => setResult(e.target.value)}
-                  className={`w-full resize-none rounded-lg border-0 bg-transparent text-sm leading-relaxed focus:outline-none focus:ring-0 font-[family-name:var(--font-geist-sans)] ${
-                    darkMode ? "text-gray-100" : "text-gray-900"
-                  }`}
-                  rows={4}
-                  placeholder={generating ? "Generating..." : ""}
-                  readOnly={generating}
-                />
-                {isFollowUp && !generating && (
-                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <p
-                      className={`text-xs mb-2 ${darkMode ? "text-gray-400" : "text-gray-500"}`}
-                    >
-                      Add the requested details to your notes above, then click
-                      Generate again.
-                    </p>
-                  </div>
-                )}
-                {!isFollowUp && !generating && result && (
-                  <div
-                    className={`mt-4 pt-4 border-t flex items-center gap-2 ${darkMode ? "border-gray-700" : "border-gray-200"}`}
-                  >
-                    <span
-                      className={`text-xs mr-auto ${darkMode ? "text-gray-400" : "text-gray-500"}`}
-                    >
-                      Download as:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => downloadAsTxt(result, `clientcraft-${typeLabel.toLowerCase()}`)}
-                      className={`rounded-md px-2.5 py-1.5 text-xs font-medium ring-1 transition ${
-                        darkMode
-                          ? "bg-gray-700 text-gray-300 ring-gray-600 hover:bg-gray-600"
-                          : "bg-white text-gray-700 ring-gray-200 hover:bg-gray-100"
-                      }`}
-                    >
-                      .txt
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => downloadAsPdf(result, `clientcraft-${typeLabel.toLowerCase()}`)}
-                      className={`rounded-md px-2.5 py-1.5 text-xs font-medium ring-1 transition ${
-                        darkMode
-                          ? "bg-gray-700 text-gray-300 ring-gray-600 hover:bg-gray-600"
-                          : "bg-white text-gray-700 ring-gray-200 hover:bg-gray-100"
-                      }`}
-                    >
-                      .pdf
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => downloadAsDocx(result, `clientcraft-${typeLabel.toLowerCase()}`)}
-                      className={`rounded-md px-2.5 py-1.5 text-xs font-medium ring-1 transition ${
-                        darkMode
-                          ? "bg-gray-700 text-gray-300 ring-gray-600 hover:bg-gray-600"
-                          : "bg-white text-gray-700 ring-gray-200 hover:bg-gray-100"
-                      }`}
-                    >
-                      .docx
-                    </button>
-                  </div>
-                )}
+                {i < 3 && <span className="text-[#8B5CF6] text-xl">→</span>}
               </div>
-            )}
-          </>
-        )}
-      </div>
-    </main>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Document Types */}
+      <section className="py-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className={`text-3xl sm:text-4xl font-bold text-center ${heading}`}>One Tool. Your Entire Business Desk.</h2>
+          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[
+              { icon: "📧", title: "Emails", desc: "Communicate professionally." },
+              { icon: "📋", title: "Proposals", desc: "Win clients with polished proposals." },
+              { icon: "💰", title: "Quotations", desc: "Quote jobs faster." },
+              { icon: "🧾", title: "Invoices", desc: "Professional invoices." },
+              { icon: "📑", title: "Contracts", desc: "Structured agreements." },
+              { icon: "📊", title: "Business Plans", desc: "Ideas into plans." },
+              { icon: "📱", title: "Social Media", desc: "Content faster." },
+            ].map((item) => (
+              <div key={item.title} className={`rounded-2xl border p-6 transition hover:border-[#8B5CF6]/40 ${border} ${cardBg}`}>
+                <span className="text-2xl">{item.icon}</span>
+                <h3 className={`mt-3 font-semibold ${heading}`}>{item.title}</h3>
+                <p className={`mt-1 text-sm ${body}`}>{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Who It's For */}
+      <section className={`py-24 ${lightMode ? "bg-white" : "bg-[#1C1A27]/50"}`}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className={`text-3xl sm:text-4xl font-bold text-center ${heading}`}>Built for People Who Run Businesses</h2>
+          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[
+              { title: "Cleaning Businesses", desc: "Quotations without hours of writing." },
+              { title: "Freelancers", desc: "Proposals, emails, contracts, invoices." },
+              { title: "Contractors", desc: "Voice notes into professional quotes." },
+              { title: "Small Business Owners", desc: "Business communication faster." },
+              { title: "Creatives", desc: "Proposals and social media content." },
+            ].map((item) => (
+              <div key={item.title} className={`rounded-2xl border p-6 ${border} ${cardBg}`}>
+                <h3 className={`font-semibold ${heading}`}>{item.title}</h3>
+                <p className={`mt-2 text-sm ${body}`}>{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="py-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className={`text-3xl sm:text-4xl font-bold text-center ${heading}`}>Simple Pricing</h2>
+          <p className={`mt-3 text-center ${body}`}>Start free. Upgrade when you need more.</p>
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+            <div className={`rounded-2xl border p-8 ${border} ${cardBg}`}>
+              <p className={`text-sm font-medium ${muted}`}>Free</p>
+              <p className={`mt-2 text-4xl font-bold ${heading}`}>$0</p>
+              <ul className={`mt-6 space-y-3 text-sm ${body}`}>
+                <li className="flex items-center gap-2"><span className="text-[#34D399]">✓</span> 5 documents every day</li>
+                <li className="flex items-center gap-2"><span className="text-[#34D399]">✓</span> All document types</li>
+                <li className="flex items-center gap-2"><span className="text-[#34D399]">✓</span> All tones</li>
+                <li className="flex items-center gap-2"><span className="text-[#34D399]">✓</span> Voice-to-document</li>
+                <li className="flex items-center gap-2"><span className="text-[#34D399]">✓</span> PDF, Word &amp; TXT</li>
+              </ul>
+              <Link href="/dashboard" className={`mt-8 block w-full rounded-xl border px-4 py-3 text-center text-sm font-semibold transition ${border} ${heading} hover:bg-[#252336]`}>
+                Start Free
+              </Link>
+            </div>
+            <div className={`rounded-2xl border-2 border-[#8B5CF6] p-8 relative ${cardBg}`}>
+              <span className="absolute -top-3 left-6 bg-[#8B5CF6] text-white text-xs font-medium px-3 py-1 rounded-full">Popular</span>
+              <p className="text-sm font-medium text-[#8B5CF6]">Pro</p>
+              <p className={`mt-2 text-4xl font-bold ${heading}`}>$9<span className={`text-lg font-normal ${muted}`}>/mo</span></p>
+              <ul className={`mt-6 space-y-3 text-sm ${body}`}>
+                <li className="flex items-center gap-2"><span className="text-[#34D399]">✓</span> Unlimited documents</li>
+                <li className="flex items-center gap-2"><span className="text-[#34D399]">✓</span> All document types</li>
+                <li className="flex items-center gap-2"><span className="text-[#34D399]">✓</span> All tones</li>
+                <li className="flex items-center gap-2"><span className="text-[#34D399]">✓</span> Voice-to-document</li>
+                <li className="flex items-center gap-2"><span className="text-[#34D399]">✓</span> PDF, Word &amp; TXT</li>
+                <li className="flex items-center gap-2"><span className="text-[#34D399]">✓</span> Priority support</li>
+              </ul>
+              <Link href="/dashboard?upgrade=true" className="mt-8 block w-full rounded-xl bg-[#8B5CF6] px-4 py-3 text-center text-sm font-semibold text-white hover:bg-[#7C3AED] transition">
+                Upgrade to Pro
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className={`py-24 ${lightMode ? "bg-white" : "bg-[#1C1A27]/50"}`}>
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className={`text-3xl sm:text-4xl font-bold ${heading}`}>Your Next Document Starts Here</h2>
+          <p className={`mt-4 ${body}`}>Stop staring at a blank page. Give ClientCraft your notes or voice recording and get a professional document in seconds.</p>
+          <div className="mt-8">
+            <Link href="/dashboard" className="rounded-xl bg-[#8B5CF6] px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#8B5CF6]/20 hover:bg-[#7C3AED] transition">
+              Create My First Document →
+            </Link>
+          </div>
+          <p className={`mt-4 text-xs ${muted}`}>Free to start · No credit card required</p>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className={`border-t py-8 ${border}`}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <span className={`text-sm ${muted}`}>© 2026 ClientCraft AI</span>
+          <div className={`flex items-center gap-6 text-sm ${muted}`}>
+            <a href="#services" className="hover:text-[#8B5CF6] transition">Services</a>
+            <a href="#features" className="hover:text-[#8B5CF6] transition">Features</a>
+            <a href="#pricing" className="hover:text-[#8B5CF6] transition">Pricing</a>
+            <Link href="/terms" className="hover:text-[#8B5CF6] transition">Terms</Link>
+            <Link href="/refund-policy" className="hover:text-[#8B5CF6] transition">Refund Policy</Link>
+            <Link href="/contact" className="hover:text-[#8B5CF6] transition">Contact</Link>
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }

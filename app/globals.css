@@ -1,23 +1,64 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ClientCraft Dark Theme - Inspired by modern SaaS */
+  --background: #13111C;
+  --background-secondary: #1C1A27;
+  --foreground: #E8E4F0;
+  --primary: #8B5CF6;
+  --primary-hover: #7C3AED;
+  --accent: #A78BFA;
+  --navy: #E8E4F0;
+  --muted: #6B6580;
+  --secondary: #9B95A8;
+  --border: #2D2A3A;
+  --card: #1C1A27;
+  --card-hover: #252336;
+  --success: #34D399;
+  --warning: #FBBF24;
+  --error: #F87171;
+  --input-bg: #252336;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-background-secondary: var(--background-secondary);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-accent: var(--accent);
+  --color-navy: var(--navy);
+  --color-muted: var(--muted);
+  --color-secondary: var(--secondary);
+  --color-border: var(--border);
+  --color-card: var(--card);
+  --color-card-hover: var(--card-hover);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-input-bg: var(--input-bg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --animate-fade-in: fade-in 0.3s ease-out;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.light {
+  --background: #F8FAFC;
+  --background-secondary: #FFFFFF;
+  --foreground: #1E293B;
+  --primary: #7C3AED;
+  --primary-hover: #6D28D9;
+  --accent: #8B5CF6;
+  --navy: #0F172A;
+  --muted: #94A3B8;
+  --secondary: #64748B;
+  --border: #E2E8F0;
+  --card: #FFFFFF;
+  --card-hover: #F8FAFC;
+  --success: #16A34A;
+  --warning: #F59E0B;
+  --error: #DC2626;
+  --input-bg: #F8FAFC;
 }
 
 @keyframes fade-in {
@@ -34,5 +75,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

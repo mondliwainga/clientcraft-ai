@@ -14,9 +14,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ClientCraft AI",
+  title: "ClientCraft AI — Turn Rough Ideas Into Professional Documents",
   description:
-    "Turn rough notes into professional client emails, proposals & follow-ups",
+    "Create professional emails, proposals, quotations, invoices, contracts, business plans and more from notes or voice recordings with ClientCraft AI.",
+  openGraph: {
+    title: "ClientCraft AI — Turn Rough Ideas Into Professional Documents",
+    description:
+      "Create professional emails, proposals, quotations, invoices, contracts, business plans and more from notes or voice recordings.",
+    type: "website",
+    url: "https://clientcraft-ai.vercel.app",
+  },
 };
 
 export default function RootLayout({
@@ -29,7 +36,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-background text-foreground">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
